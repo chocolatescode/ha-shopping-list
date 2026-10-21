@@ -14,7 +14,10 @@ z aplikacją mobilną HA i asystentem głosowym.
   Owoce i warzywa, Chemia, Słodycze / przekąski, Napoje, Przyprawy, Mrożonki, Leki, Inne).
   Wygrywa najdłuższe dopasowanie, a słowa z prefiksem `!` mają pierwszeństwo
   (np. „sok pomarańczowy” → Napoje, nie Owoce).
-- **Ręczna zmiana kategorii** pojedynczego produktu – zapamiętywana na przyszłość.
+- **Ręczna zmiana kategorii** pojedynczego produktu (kliknij etykietę kategorii przy produkcie) –
+  zapamiętywana na przyszłość. Kategorię można też wybrać od razu przy dodawaniu (przycisk 🏷 obok pola).
+- **Filtr wielu kategorii** – zaznacz dowolną liczbę chipów (np. Nabiał + Pieczywo); „Wszystkie” czyści
+  wybór, a „Pilne” dodatkowo zawęża do pilnych.
 - **Edytor kategorii** (⚙ Kategorie) – dodawanie, usuwanie, zmiana nazwy, ikony, koloru, słów kluczowych
   i kolejności. Zapisywane w Home Assistant, więc wspólne dla wszystkich urządzeń.
 - **Pilne** – oznaczone pozycje na górze listy; flaga znika po odhaczeniu.

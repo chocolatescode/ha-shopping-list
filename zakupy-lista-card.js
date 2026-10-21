@@ -104,7 +104,12 @@ class ZakupyListaCard extends HTMLElement {
     this._klucz = `zakupy-lista-card:${config.entity}`;
     const zap = ls.get(this._klucz, {});
     this._sort = zap.sort || 'kat';
-    this._filtr = zap.filtr || 'wszystkie';
+    // Filtr: zbiór kategorii (pusty = wszystkie) + opcjonalnie tylko pilne. Stary zapis (string) też działa.
+    const f = Array.isArray(zap.filtr) ? zap.filtr : (zap.filtr && zap.filtr !== 'wszystkie' ? [zap.filtr] : []);
+    this._tylkoPilne = f.includes('pilne');
+    this._filtry = new Set(f.filter((id) => id !== 'pilne'));
+    this._nowyKat = null;
+    this._nowyMenu = false;
     this._pokazKupione = !!zap.kupione;
     this._items = this._items || [];
     this._menu = null;
@@ -154,7 +159,16 @@ class ZakupyListaCard extends HTMLElement {
     this._render();
   }
 
-  _zapisz() { ls.set(this._klucz, { sort: this._sort, filtr: this._filtr, kupione: this._pokazKupione }); }
+  _zapisz() {
+    const filtr = [...this._filtry, ...(this._tylkoPilne ? ['pilne'] : [])];
+    ls.set(this._klucz, { sort: this._sort, filtr, kupione: this._pokazKupione });
+  }
+
+  // Kategoria dla nowego produktu: wybrana ręcznie, a jeśli nie – jedyna zaznaczona w filtrze.
+  _katNowego() {
+    if (this._nowyKat && this._kat[this._nowyKat]) return this._nowyKat;
+    return this._filtry.size === 1 ? [...this._filtry][0] : null;
+  }
 
   // --- dane pomocnicze ---
   _attr() {
@@ -218,11 +232,13 @@ class ZakupyListaCard extends HTMLElement {
     this._hass.callService('todo', 'add_item', { item: nazwa }, { entity_id: this._config.entity });
     const pilne = this.shadowRoot.getElementById('nowy-pilne').classList.contains('on');
     const dane = { nazwa };
-    // Dodawanie przy aktywnym filtrze kategorii przypisuje tę kategorię (jeśli auto wskazuje inną).
-    if (this._kat[this._filtr] && this._auto(nazwa) !== this._filtr) dane.tag = this._filtr;
-    if (pilne || this._filtr === 'pilne') dane.pilne = true;
+    // Ręcznie wybrana kategoria (albo jedyna w filtrze) – zapisywana tylko, gdy auto wskazuje inną.
+    const kat = this._katNowego();
+    if (kat && this._auto(nazwa) !== kat) dane.tag = kat;
+    if (pilne || this._tylkoPilne) dane.pilne = true;
     if (Object.keys(dane).length > 1) this._skrypt(dane);
     this.shadowRoot.getElementById('nowy-pilne').classList.remove('on');
+    this._nowyKat = null; this._nowyMenu = false; this._render();
   }
 
   _item(uid) { return this._items.find((i) => i.uid === uid); }
@@ -232,7 +248,16 @@ class ZakupyListaCard extends HTMLElement {
     const attr = this._attr();
     switch (a) {
       case 'sort': this._sort = el.dataset.v; this._zapisz(); this._render(); break;
-      case 'filtr': this._filtr = this._filtr === el.dataset.v ? 'wszystkie' : el.dataset.v; this._zapisz(); this._render(); break;
+      case 'filtr': {
+        const v = el.dataset.v;
+        if (v === 'wszystkie') { this._filtry.clear(); this._tylkoPilne = false; }
+        else if (v === 'pilne') this._tylkoPilne = !this._tylkoPilne;
+        else if (this._filtry.has(v)) this._filtry.delete(v);
+        else this._filtry.add(v);
+        this._zapisz(); this._render(); break;
+      }
+      case 'nowy-kat-menu': this._nowyMenu = !this._nowyMenu; this._render(); break;
+      case 'nowy-kat': this._nowyKat = el.dataset.v === 'auto' ? null : el.dataset.v; this._nowyMenu = false; this._render(); break;
       case 'dodaj': this._dodaj(); break;
       case 'nowy-pilne': el.classList.toggle('on'); break;
       case 'kupione': this._pokazKupione = !this._pokazKupione; this._zapisz(); this._render(); break;
@@ -314,7 +339,7 @@ class ZakupyListaCard extends HTMLElement {
         if (reczne) msg += `\nRęczne przypisania do tej kategorii: ${reczne} – zostaną pominięte.`;
         if (!confirm(msg)) return;
         lista.splice(i, 1);
-        if (this._filtr === k.id) { this._filtr = 'wszystkie'; this._zapisz(); }
+        if (this._filtry.delete(k.id)) this._zapisz();
         this._zapiszKategorie(lista);
         break;
       }
@@ -425,6 +450,8 @@ class ZakupyListaCard extends HTMLElement {
         .ib { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px;
           cursor: pointer; color: var(--secondary-text-color); border: 1px solid var(--divider-color); background: none; flex: none; }
         .ib.prim { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: transparent; }
+        .ib.kat { color: #fff; background: var(--k); border-color: transparent; }
+        .menu.nowy-menu { padding: 0 0 10px; }
         .ib.on { color: #fff; background: var(--error-color, #db4437); border-color: transparent; }
         .seg { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
         .seg button, .chip { font: inherit; font-size: 12.5px; border: 1px solid var(--divider-color); background: none; color: var(--primary-text-color);
@@ -493,9 +520,11 @@ class ZakupyListaCard extends HTMLElement {
         <div id="glowny">
         <div class="row add">
           <input id="nowy" list="podp" placeholder="Dodaj produkt…" enterkeyhint="done" autocomplete="off"><datalist id="podp"></datalist>
+          <button class="ib" id="nowy-kat" data-a="nowy-kat-menu" title="Kategoria nowego produktu"></button>
           <button class="ib" id="nowy-pilne" data-a="nowy-pilne" title="Dodaj jako pilne"><ha-icon icon="mdi:alert-circle-outline"></ha-icon></button>
           <button class="ib prim" data-a="dodaj" title="Dodaj"><ha-icon icon="mdi:plus"></ha-icon></button>
         </div>
+        <div class="menu nowy-menu" id="nowy-menu" hidden></div>
         <div class="seg" id="sort"></div>
         <div class="chips" id="chips"></div>
         <div id="lista"></div>
@@ -550,20 +579,36 @@ class ZakupyListaCard extends HTMLElement {
 
     const ile = (id) => aktywne.filter((i) => katOf.get(i.uid) === id).length;
     const nPilne = aktywne.filter(jestPilne).length;
-    if (this._filtr !== 'wszystkie' && this._filtr !== 'pilne' && !this._kat[this._filtr]) this._filtr = 'wszystkie';
+    for (const id of this._filtry) if (!this._kat[id]) this._filtry.delete(id);
+    const wszystkie = !this._filtry.size && !this._tylkoPilne;
+
+    // Wybór kategorii przy dodawaniu: przycisk pokazuje kategorię, która zostanie przypisana.
+    const kn = this._kat[this._katNowego()];
+    const kb = $('nowy-kat');
+    kb.className = `ib ${kn ? 'kat' : ''}`;
+    kb.style.setProperty('--k', kn ? kn.kolor : '');
+    kb.title = kn ? `Kategoria: ${kn.nazwa}` : 'Kategoria: automatycznie';
+    kb.innerHTML = `<ha-icon icon="${kn ? kn.ikona : 'mdi:tag-outline'}"></ha-icon>`;
+    $('nowy-menu').hidden = !this._nowyMenu;
+    if (this._nowyMenu) {
+      $('nowy-menu').innerHTML = `<button class="chip ${kn ? '' : 'cur'}" style="--k:var(--primary-color)" data-a="nowy-kat" data-v="auto"><ha-icon icon="mdi:auto-fix"></ha-icon>Automatycznie</button>`
+        + this._kategorie.map((c) => `<button class="chip ${kn && c.id === kn.id ? 'cur' : ''}" style="--k:${c.kolor}" data-a="nowy-kat" data-v="${c.id}"><ha-icon icon="${c.ikona}"></ha-icon>${esc(c.nazwa)}</button>`).join('');
+    }
+
     $('chips').innerHTML = [
-      `<button class="chip ${this._filtr === 'wszystkie' ? 'sel' : ''}" style="--k:var(--primary-color)" data-a="filtr" data-v="wszystkie">Wszystkie <span class="n">${aktywne.length}</span></button>`,
-      `<button class="chip ${this._filtr === 'pilne' ? 'sel' : ''}" style="--k:var(--error-color, #db4437)" data-a="filtr" data-v="pilne"><ha-icon icon="mdi:alert-circle"></ha-icon>Pilne <span class="n">${nPilne}</span></button>`,
+      `<button class="chip ${wszystkie ? 'sel' : ''}" style="--k:var(--primary-color)" data-a="filtr" data-v="wszystkie">Wszystkie <span class="n">${aktywne.length}</span></button>`,
+      `<button class="chip ${this._tylkoPilne ? 'sel' : ''}" style="--k:var(--error-color, #db4437)" data-a="filtr" data-v="pilne"><ha-icon icon="mdi:alert-circle"></ha-icon>Pilne <span class="n">${nPilne}</span></button>`,
       ...this._kategorie.map((k) => {
         const n = ile(k.id);
-        if (k.id === 'inne' && !n && this._filtr !== 'inne') return '';
-        return `<button class="chip ${this._filtr === k.id ? 'sel' : ''}" style="--k:${k.kolor}" data-a="filtr" data-v="${k.id}"><ha-icon icon="${k.ikona}"></ha-icon>${esc(k.nazwa)} <span class="n">${n}</span></button>`;
+        if (k.id === 'inne' && !n && !this._filtry.has('inne')) return '';
+        return `<button class="chip ${this._filtry.has(k.id) ? 'sel' : ''}" style="--k:${k.kolor}" data-a="filtr" data-v="${k.id}"><ha-icon icon="${k.ikona}"></ha-icon>${esc(k.nazwa)} <span class="n">${n}</span></button>`;
       }),
     ].join('');
 
     let lista = aktywne;
-    if (this._filtr === 'pilne') lista = lista.filter(jestPilne);
-    else if (this._filtr !== 'wszystkie') lista = lista.filter((i) => katOf.get(i.uid) === this._filtr);
+    // Kilka kategorii = suma; „Pilne” dodatkowo zawęża (np. Pilne + Nabiał = pilny nabiał).
+    if (this._filtry.size) lista = lista.filter((i) => this._filtry.has(katOf.get(i.uid)));
+    if (this._tylkoPilne) lista = lista.filter(jestPilne);
 
     const poz = new Map(this._items.map((i, n) => [i.uid, n]));
     const alfa = (a, b) => a.summary.localeCompare(b.summary, 'pl', { sensitivity: 'base' });
