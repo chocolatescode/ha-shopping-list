@@ -6,6 +6,8 @@ flagą **„pilne”** i szybkim dodawaniem **często kupowanych** produktów. I
 Działa na dowolnej encji `todo.*` (np. z integracji *Shopping list*), więc lista synchronizuje się
 z aplikacją mobilną HA i asystentem głosowym.
 
+> 📘 **Pierwszy raz?** Zobacz [instrukcję instalacji krok po kroku](INSTALACJA.md).
+
 ## Funkcje
 
 - **Kategorie automatyczne** – produkt trafia do grupy po słowach kluczowych (Pieczywo, Nabiał, Sypkie,
@@ -78,7 +80,8 @@ type: custom:zakupy-lista-card
 entity: todo.lista_zakupow
 ```
 
-Gotowy widok z chipami: [`examples/widok.yaml`](examples/widok.yaml) + szablon
+Cały gotowy dashboard: [`examples/dashboard.yaml`](examples/dashboard.yaml).
+Sam widok z chipami: [`examples/widok.yaml`](examples/widok.yaml) + szablon
 [`examples/button_card_templates.yaml`](examples/button_card_templates.yaml).
 Wszystkie opcje karty: [`examples/karta.yaml`](examples/karta.yaml).
 
