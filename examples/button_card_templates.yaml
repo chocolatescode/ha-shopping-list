@@ -1,0 +1,90 @@
+# Szablon chipa „często kupowane” – wklej do button_card_templates: dashboardu
+# (Edytuj dashboard → ⋮ → Edytor surowej konfiguracji). Wymaga custom:button-card (HACS).
+# variables.i = pozycja w rankingu (0 = najczęściej dodawany produkt).
+button_card_templates:
+  zakupy_chip:
+    variables:
+      i: 0
+    show_icon: true
+    show_name: true
+    show_label: true
+    show_state: false
+    triggers_update:
+      - sensor.lista_zakupow_czesto_kupowane
+      - sensor.lista_zakupow_pozycje
+    name: |
+      [[[
+      const c = (states['sensor.lista_zakupow_czesto_kupowane'] || { attributes: {} }).attributes.czeste || {};
+      const e = Object.entries(c).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pl'))[variables.i];
+      const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+      return e ? cap(e[0]) : '';
+      ]]]
+    label: |
+      [[[
+      const c = (states['sensor.lista_zakupow_czesto_kupowane'] || { attributes: {} }).attributes.czeste || {};
+      const e = Object.entries(c).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pl'))[variables.i];
+      const on = ((states['sensor.lista_zakupow_pozycje'] || { attributes: {} }).attributes.pozycje || []).includes(e ? e[0] : '');
+      return !e ? '' : on ? 'na liście' : `dodawano ×${e[1]}`;
+      ]]]
+    icon: |
+      [[[
+      const c = (states['sensor.lista_zakupow_czesto_kupowane'] || { attributes: {} }).attributes.czeste || {};
+      const e = Object.entries(c).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pl'))[variables.i];
+      const on = ((states['sensor.lista_zakupow_pozycje'] || { attributes: {} }).attributes.pozycje || []).includes(e ? e[0] : '');
+      return on ? 'mdi:check-circle' : 'mdi:plus-circle-outline';
+      ]]]
+    tap_action:
+      action: javascript
+      javascript: |
+        [[[
+        const c = (states['sensor.lista_zakupow_czesto_kupowane'] || { attributes: {} }).attributes.czeste || {};
+        const e = Object.entries(c).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pl'))[variables.i];
+        const on = ((states['sensor.lista_zakupow_pozycje'] || { attributes: {} }).attributes.pozycje || []).includes(e ? e[0] : '');
+        const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+        if (!e || on) return;
+        hass.callService('todo', 'add_item', { item: cap(e[0]) }, { entity_id: 'todo.lista_zakupow' });
+        ]]]
+    hold_action:
+      action: none
+    styles:
+      card:
+        - padding: 0 10px
+        - height: 100%
+        - background: |
+            [[[
+            const c = (states['sensor.lista_zakupow_czesto_kupowane'] || { attributes: {} }).attributes.czeste || {};
+            const e = Object.entries(c).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pl'))[variables.i];
+            const on = ((states['sensor.lista_zakupow_pozycje'] || { attributes: {} }).attributes.pozycje || []).includes(e ? e[0] : '');
+            return on ? 'rgba(var(--rgb-primary-color, 3,169,244), .15)' : 'var(--ha-card-background, var(--card-background-color))';
+            ]]]
+        - visibility: |
+            [[[
+            const c = (states['sensor.lista_zakupow_czesto_kupowane'] || { attributes: {} }).attributes.czeste || {};
+            const e = Object.entries(c).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pl'))[variables.i];
+            return e ? 'visible' : 'hidden';
+            ]]]
+      grid:
+        - grid-template-areas: '"i n" "i l"'
+        - grid-template-columns: 26px 1fr
+        - grid-template-rows: 1fr 1fr
+        - column-gap: 8px
+        - height: 100%
+      icon:
+        - width: 22px
+        - color: var(--primary-color)
+      img_cell:
+        - align-self: center
+      name:
+        - justify-self: start
+        - align-self: end
+        - font-size: 14px
+        - font-weight: '500'
+        - max-width: 100%
+        - overflow: hidden
+        - text-overflow: ellipsis
+        - white-space: nowrap
+      label:
+        - justify-self: start
+        - align-self: start
+        - font-size: 11px
+        - color: var(--secondary-text-color)

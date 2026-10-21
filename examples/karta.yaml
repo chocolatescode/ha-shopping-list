@@ -1,0 +1,15 @@
+# Minimalna konfiguracja karty.
+type: custom:zakupy-lista-card
+entity: todo.lista_zakupow
+# Opcjonalnie – gdy encje z pakietu mają inne nazwy:
+# sensor: sensor.lista_zakupow_kategorie
+# script: script.lista_zakupow_ustaw_kategorie
+# czeste: sensor.lista_zakupow_czesto_kupowane
+# Opcjonalnie – własne kategorie startowe (kolejność = kolejność grup).
+# Kategorie zmienione w karcie (⚙ Kategorie) mają pierwszeństwo przed tymi z configu.
+# kategorie:
+#   - id: pieczywo
+#     nazwa: Pieczywo
+#     ikona: mdi:baguette
+#     kolor: '#c58b3a'
+#     slowa: [chleb, bulk, '!bagiet', 'pita=']

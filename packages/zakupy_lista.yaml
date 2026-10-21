@@ -1,0 +1,113 @@
+# Lista zakupów – licznik "często kupowane" (widok Lista zakupowa, szybkie dodawanie).
+# Liczy każde dodanie produktu do todo.lista_zakupow (zdarzenie shopping_list_updated, action: add).
+# Pomija recepty (nazwa z 11-cyfrowym numerem PESEL).
+# Zdarzenie lista_zakupow_seed (data.czeste = {nazwa: liczba}) jednorazowo wczytuje historię z bazy.
+template:
+  - triggers:
+      - trigger: event
+        event_type: shopping_list_updated
+        event_data:
+          action: add
+      - trigger: event
+        event_type: lista_zakupow_seed
+    sensor:
+      - name: Lista zakupów często kupowane
+        unique_id: lista_zakupow_czeste
+        icon: mdi:cart-heart
+        state: "{{ (this.attributes.czeste | default({})) | count if trigger.event.event_type == 'shopping_list_updated' else trigger.event.data.czeste | count }}"
+        attributes:
+          czeste: >
+            {% if trigger.event.event_type == 'lista_zakupow_seed' %}
+              {{ trigger.event.data.czeste }}
+            {% else %}
+              {% set d = this.attributes.czeste | default({}) %}
+              {% set n = (trigger.event.data.item.name | default('')) | lower | trim %}
+              {% if n and not n is search('\\d{11}') %}{{ dict(d, **{n: d.get(n, 0) + 1}) }}{% else %}{{ d }}{% endif %}
+            {% endif %}
+
+  # Bieżące (nieodhaczone) pozycje listy zakupów – do oznaczania ✓ na przyciskach szybkiego dodawania.
+  - triggers:
+      - trigger: state
+        entity_id: todo.lista_zakupow
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: event_template_reloaded
+      - trigger: event
+        event_type: shopping_list_updated
+    actions:
+      - action: todo.get_items
+        target:
+          entity_id: todo.lista_zakupow
+        data:
+          status: needs_action
+        response_variable: lista
+    sensor:
+      - name: Lista zakupów pozycje
+        unique_id: lista_zakupow_pozycje
+        icon: mdi:cart-outline
+        state: "{{ lista['todo.lista_zakupow']['items'] | count }}"
+        attributes:
+          pozycje: "{{ lista['todo.lista_zakupow']['items'] | map(attribute='summary') | map('lower') | map('trim') | list }}"
+
+  # Ręcznie przypisane kategorie + flaga "pilne" (karta custom:zakupy-lista-card).
+  # tagi: {nazwa (lower/trim): id kategorii}; pusty tag usuwa wpis (karta wraca do dopasowania po słowach).
+  # pilne: lista nazw (lower/trim) oznaczonych jako pilne.
+  # Zdarzenie lista_zakupow_tag: data.nazwa + data.tag (zmiana kategorii) i/lub data.pilne (true/false).
+  - triggers:
+      - trigger: event
+        event_type: lista_zakupow_tag
+    sensor:
+      - name: Lista zakupów kategorie
+        unique_id: lista_zakupow_kategorie
+        icon: mdi:tag-multiple
+        state: "{{ now().isoformat() }}"
+        attributes:
+          tagi: >
+            {% set d = this.attributes.tagi | default({}) %}
+            {% set n = (trigger.event.data.nazwa | default('')) | lower | trim %}
+            {% if not n or trigger.event.data.tag | default('_bez_zmian') == '_bez_zmian' %}{{ d }}
+            {% elif trigger.event.data.tag %}{{ dict(d, **{n: trigger.event.data.tag}) }}
+            {% else %}{{ dict(d.items() | rejectattr(0, 'eq', n) | list) }}{% endif %}
+          pilne: >
+            {% set l = this.attributes.pilne | default([]) %}
+            {% set n = (trigger.event.data.nazwa | default('')) | lower | trim %}
+            {% if not n or trigger.event.data.pilne | default('_bez_zmian') | string == '_bez_zmian' %}{{ l }}
+            {% elif trigger.event.data.pilne | string | lower in ['true', 'on', '1'] %}{{ (l | reject('eq', n) | list) + [n] }}
+            {% else %}{{ l | reject('eq', n) | list }}{% endif %}
+          # Definicje kategorii edytowane w karcie (lista {id, nazwa, ikona, kolor, slowa}); brak = domyślne z JS.
+          # data.kategorie = pełna nowa lista; [] przywraca domyślne.
+          kategorie: >
+            {% set k = trigger.event.data.kategorie | default('_bez_zmian') %}
+            {% if k is string %}{{ this.attributes.kategorie | default(none) }}
+            {% elif k | count %}{{ k }}{% else %}{{ none }}{% endif %}
+
+script:
+  lista_zakupow_ustaw_kategorie:
+    alias: Lista zakupów – ustaw kategorię / pilne
+    icon: mdi:tag
+    mode: queued
+    fields:
+      nazwa:
+        description: Nazwa produktu (niepotrzebna przy zmianie kategorii)
+        selector:
+          text:
+      tag:
+        description: Id kategorii (puste = automatycznie). Pominięte = bez zmian.
+        selector:
+          text:
+      pilne:
+        description: true/false. Pominięte = bez zmian.
+        selector:
+          boolean:
+      kategorie:
+        description: Pełna lista definicji kategorii (pusta lista = domyślne). Pominięte = bez zmian.
+        selector:
+          object:
+    sequence:
+      - event: lista_zakupow_tag
+        event_data:
+          nazwa: "{{ nazwa | default('') }}"
+          tag: "{{ tag if tag is defined else '_bez_zmian' }}"
+          pilne: "{{ (pilne | string | lower) if pilne is defined else '_bez_zmian' }}"
+          kategorie: "{{ kategorie if kategorie is defined else '_bez_zmian' }}"

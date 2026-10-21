@@ -1,0 +1,70 @@
+# Przykładowy widok (typ sections). Wklej jako nowy widok w edytorze surowej konfiguracji.
+# Chipy „często kupowane” wymagają szablonu z button_card_templates.yaml (custom:button-card).
+title: Lista zakupowa
+path: lista-zakupowa
+icon: mdi:format-list-bulleted
+type: sections
+max_columns: 4
+sections:
+  - type: grid
+    column_span: 4
+    cards:
+      - type: heading
+        heading: Lista zakupów
+        icon: mdi:cart-outline
+        grid_options: { columns: full, rows: 1 }
+      - type: heading
+        heading: Często kupowane – kliknij, aby dodać
+        heading_style: subtitle
+        grid_options: { columns: full, rows: 1 }
+      - type: custom:button-card
+        template: zakupy_chip
+        variables: { i: 0 }
+        grid_options: { columns: 4, rows: 1 }
+      - type: custom:button-card
+        template: zakupy_chip
+        variables: { i: 1 }
+        grid_options: { columns: 4, rows: 1 }
+      - type: custom:button-card
+        template: zakupy_chip
+        variables: { i: 2 }
+        grid_options: { columns: 4, rows: 1 }
+      - type: custom:button-card
+        template: zakupy_chip
+        variables: { i: 3 }
+        grid_options: { columns: 4, rows: 1 }
+      - type: custom:button-card
+        template: zakupy_chip
+        variables: { i: 4 }
+        grid_options: { columns: 4, rows: 1 }
+      - type: custom:button-card
+        template: zakupy_chip
+        variables: { i: 5 }
+        grid_options: { columns: 4, rows: 1 }
+      - type: custom:button-card
+        template: zakupy_chip
+        variables: { i: 6 }
+        grid_options: { columns: 4, rows: 1 }
+      - type: custom:button-card
+        template: zakupy_chip
+        variables: { i: 7 }
+        grid_options: { columns: 4, rows: 1 }
+      - type: custom:button-card
+        template: zakupy_chip
+        variables: { i: 8 }
+        grid_options: { columns: 4, rows: 1 }
+      - type: custom:button-card
+        template: zakupy_chip
+        variables: { i: 9 }
+        grid_options: { columns: 4, rows: 1 }
+      - type: custom:button-card
+        template: zakupy_chip
+        variables: { i: 10 }
+        grid_options: { columns: 4, rows: 1 }
+      - type: custom:button-card
+        template: zakupy_chip
+        variables: { i: 11 }
+        grid_options: { columns: 4, rows: 1 }
+      - type: custom:zakupy-lista-card
+        entity: todo.lista_zakupow
+        grid_options: { columns: full }

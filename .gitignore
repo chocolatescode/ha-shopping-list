@@ -1,0 +1,7 @@
+# kopie zapasowe i pliki lokalne – nie wrzucać
+*.bak*
+*.orig
+*.local.yaml
+secrets.yaml
+.storage/
+.DS_Store
