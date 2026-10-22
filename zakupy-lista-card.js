@@ -1,6 +1,6 @@
-// Lista zakupów z kategoriami, sortowaniem i flagą "pilne".
-// Dane listy: todo (todo/item/subscribe). Ręczne kategorie i "pilne": sensor.lista_zakupow_kategorie
-// (atrybuty tagi / pilne), zapisywane przez script.lista_zakupow_ustaw_kategorie (packages/zakupy_lista.yaml).
+// Lista zakupów z kategoriami, sortowaniem, ilością i flagą "pilne".
+// Dane listy: todo (todo/item/subscribe). Ręczne kategorie, "pilne" i ilości: sensor.lista_zakupow_kategorie
+// (atrybuty tagi / pilne / ilosci), zapisywane przez script.lista_zakupow_ustaw_kategorie (packages/zakupy_lista.yaml).
 // Kategoria produktu: ręczne przypisanie > najdłuższe dopasowane słowo kluczowe > "inne".
 // Definicje kategorii edytowane w karcie (⚙ Kategorie) trafiają do atrybutu "kategorie" tego samego
 // sensora (wspólne dla wszystkich urządzeń); brak atrybutu = kategorie z configu albo domyślne poniżej.
@@ -174,7 +174,15 @@ class ZakupyListaCard extends HTMLElement {
   _attr() {
     const s = this._hass && this._hass.states[this._config.sensor];
     const p = (s && s.attributes.pilne) || [];
-    return { tagi: (s && s.attributes.tagi) || {}, pilne: p };
+    return { tagi: (s && s.attributes.tagi) || {}, pilne: p, ilosci: (s && s.attributes.ilosci) || {} };
+  }
+
+  _ilosc(item, attr) { return attr.ilosci[norm(item.summary)] || ''; }
+
+  // Zwraca nową ilość (tekst, '' = usuń) albo null, gdy anulowano.
+  _pytajIlosc(stara) {
+    const q = prompt('Ilość (np. 2, 1 kg, 3 opak.) – puste usuwa', stara);
+    return q === null ? null : q.trim();
   }
 
   // Pilne: ręczna flaga albo kategoria Leki (zawsze pilne).
@@ -229,9 +237,14 @@ class ZakupyListaCard extends HTMLElement {
     const nazwa = inp.value.trim();
     if (!nazwa) return;
     inp.value = '';
+    const qInp = this.shadowRoot.getElementById('nowy-ilosc');
+    const ilosc = qInp.value.trim();
+    qInp.value = '';
     this._hass.callService('todo', 'add_item', { item: nazwa }, { entity_id: this._config.entity });
     const pilne = this.shadowRoot.getElementById('nowy-pilne').classList.contains('on');
     const dane = { nazwa };
+    // Pusta ilość kasuje ewentualną starą (np. produkt odhaczony poza kartą).
+    if (ilosc || this._attr().ilosci[norm(nazwa)]) dane.ilosc = ilosc;
     // Ręcznie wybrana kategoria (albo jedyna w filtrze) – zapisywana tylko, gdy auto wskazuje inną.
     const kat = this._katNowego();
     if (kat && this._auto(nazwa) !== kat) dane.tag = kat;
@@ -265,7 +278,16 @@ class ZakupyListaCard extends HTMLElement {
         if (!it) return;
         const done = it.status === 'needs_action';
         this._hass.callService('todo', 'update_item', { item: uid, status: done ? 'completed' : 'needs_action' }, { entity_id: this._config.entity });
-        if (done && attr.pilne.includes(norm(it.summary))) this._skrypt({ nazwa: it.summary, pilne: false });
+        if (done && (attr.pilne.includes(norm(it.summary)) || this._ilosc(it, attr))) {
+          this._skrypt({ nazwa: it.summary, ...(attr.pilne.includes(norm(it.summary)) ? { pilne: false } : {}), ...(this._ilosc(it, attr) ? { ilosc: '' } : {}) });
+        }
+        break;
+      }
+      case 'ilosc': {
+        if (!it) return;
+        const q = this._pytajIlosc(this._ilosc(it, attr));
+        if (q !== null && q !== this._ilosc(it, attr)) this._skrypt({ nazwa: it.summary, ilosc: q });
+        this._menu = null; this._render();
         break;
       }
       case 'pilne':
@@ -284,10 +306,10 @@ class ZakupyListaCard extends HTMLElement {
         const nowa = prompt('Nazwa produktu', it.summary);
         if (!nowa || !nowa.trim() || nowa.trim() === it.summary) return;
         this._hass.callService('todo', 'update_item', { item: uid, rename: nowa.trim() }, { entity_id: this._config.entity });
-        const k = this._kategoria(it, attr), p = attr.pilne.includes(norm(it.summary));
-        if (k.reczna || p) {
-          this._skrypt({ nazwa: nowa.trim(), ...(k.reczna ? { tag: k.id } : {}), ...(p ? { pilne: true } : {}) });
-          this._skrypt({ nazwa: it.summary, ...(k.reczna ? { tag: '' } : {}), ...(p ? { pilne: false } : {}) });
+        const k = this._kategoria(it, attr), p = attr.pilne.includes(norm(it.summary)), q = this._ilosc(it, attr);
+        if (k.reczna || p || q) {
+          this._skrypt({ nazwa: nowa.trim(), ...(k.reczna ? { tag: k.id } : {}), ...(p ? { pilne: true } : {}), ...(q ? { ilosc: q } : {}) });
+          this._skrypt({ nazwa: it.summary, ...(k.reczna ? { tag: '' } : {}), ...(p ? { pilne: false } : {}), ...(q ? { ilosc: '' } : {}) });
         }
         this._menu = null;
         break;
@@ -295,7 +317,8 @@ class ZakupyListaCard extends HTMLElement {
       case 'usun':
         if (it && confirm(`Usunąć „${it.summary}”?`)) {
           this._hass.callService('todo', 'remove_item', { item: uid }, { entity_id: this._config.entity });
-          if (attr.pilne.includes(norm(it.summary))) this._skrypt({ nazwa: it.summary, pilne: false });
+          const p = attr.pilne.includes(norm(it.summary)), q = this._ilosc(it, attr);
+          if (p || q) this._skrypt({ nazwa: it.summary, ...(p ? { pilne: false } : {}), ...(q ? { ilosc: '' } : {}) });
         }
         this._menu = null;
         break;
@@ -447,6 +470,10 @@ class ZakupyListaCard extends HTMLElement {
         .add input { flex: 1; min-width: 0; font: inherit; font-size: 15px; padding: 10px 12px; border-radius: 10px;
           border: 1px solid var(--divider-color); background: var(--secondary-background-color); color: var(--primary-text-color); outline: none; }
         .add input:focus { border-color: var(--primary-color); }
+        .add #nowy-ilosc { flex: none; width: 56px; padding: 10px 6px; text-align: center; }
+        .il { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 10px; white-space: nowrap; cursor: pointer; flex: none;
+          border: none; font-family: inherit; color: var(--primary-text-color); background: var(--secondary-background-color); }
+        .done .il { color: var(--secondary-text-color); }
         .ib { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px;
           cursor: pointer; color: var(--secondary-text-color); border: 1px solid var(--divider-color); background: none; flex: none; }
         .ib.prim { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: transparent; }
@@ -520,6 +547,7 @@ class ZakupyListaCard extends HTMLElement {
         <div id="glowny">
         <div class="row add">
           <input id="nowy" list="podp" placeholder="Dodaj produkt…" enterkeyhint="done" autocomplete="off"><datalist id="podp"></datalist>
+          <input id="nowy-ilosc" placeholder="Ilość" title="Ilość (np. 2, 1 kg) – opcjonalnie" enterkeyhint="done" autocomplete="off">
           <button class="ib" id="nowy-kat" data-a="nowy-kat-menu" title="Kategoria nowego produktu"></button>
           <button class="ib" id="nowy-pilne" data-a="nowy-pilne" title="Dodaj jako pilne"><ha-icon icon="mdi:alert-circle-outline"></ha-icon></button>
           <button class="ib prim" data-a="dodaj" title="Dodaj"><ha-icon icon="mdi:plus"></ha-icon></button>
@@ -532,7 +560,7 @@ class ZakupyListaCard extends HTMLElement {
         </div>
         <div id="ed" hidden></div>
       </ha-card>`;
-    root.getElementById('nowy').addEventListener('keydown', (e) => { if (e.key === 'Enter') this._dodaj(); });
+    for (const id of ['nowy', 'nowy-ilosc']) root.getElementById(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') this._dodaj(); });
     root.addEventListener('input', (e) => { if (['ed-nazwa', 'ed-ikona', 'ed-kolor'].includes(e.target.id)) this._podglad(); });
     root.addEventListener('click', (e) => {
       const el = e.composedPath().find((n) => n.dataset && n.dataset.a);
@@ -545,15 +573,18 @@ class ZakupyListaCard extends HTMLElement {
     const done = it.status === 'completed';
     const pil = !done && this._pilne(it, attr);
     const lek = k.id === 'leki';
+    const q = this._ilosc(it, attr);
     let h = `<div class="it ${done ? 'done' : ''} ${pil ? 'pil' : ''}" style="--k:${kat.kolor}">
       <div class="cb" data-a="check" data-uid="${esc(it.uid)}">${done ? '<ha-icon icon="mdi:check"></ha-icon>' : ''}</div>
       <div class="nm" data-a="zmien" data-uid="${esc(it.uid)}">${pil ? '<span class="pil-txt">PILNE</span>' : ''}${esc(it.summary)}</div>
+      ${q ? `<button class="il" data-a="ilosc" data-uid="${esc(it.uid)}" title="Zmień ilość">${esc(q)}</button>` : ''}
       <button class="tag ${k.reczna ? '' : 'auto'}" data-a="menu" data-uid="${esc(it.uid)}" title="${k.reczna ? 'Kategoria przypisana ręcznie' : 'Kategoria dobrana automatycznie'}">${esc(kat.nazwa)}</button>
       ${done ? '' : `<button class="pb ${pil ? 'on' : ''}" ${lek ? 'disabled title="Leki są zawsze pilne"' : ''} data-a="pilne" data-uid="${esc(it.uid)}" title="Pilne"><ha-icon icon="${pil ? 'mdi:alert-circle' : 'mdi:alert-circle-outline'}"></ha-icon></button>`}
     </div>`;
     if (this._menu === it.uid) {
       const auto = this._auto(it.summary);
       h += `<div class="menu">${this._kategorie.map((c) => `<button class="chip ${c.id === k.id ? 'cur' : ''}" style="--k:${c.kolor}" data-a="ustaw" data-v="${c.id}" data-uid="${esc(it.uid)}"><ha-icon icon="${c.ikona}"></ha-icon>${esc(c.nazwa)}${c.id === auto ? ' <span class="n">(auto)</span>' : ''}</button>`).join('')}
+        ${done ? '' : `<button class="chip" data-a="ilosc" data-uid="${esc(it.uid)}"><ha-icon icon="mdi:numeric"></ha-icon>${q ? `Ilość: ${esc(q)}` : 'Ilość'}</button>`}
         <button class="chip" data-a="zmien" data-uid="${esc(it.uid)}"><ha-icon icon="mdi:pencil"></ha-icon>Zmień nazwę</button>
         <button class="chip warn" data-a="usun" data-uid="${esc(it.uid)}"><ha-icon icon="mdi:delete-outline"></ha-icon>Usuń</button></div>`;
     }

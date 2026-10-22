@@ -58,7 +58,7 @@ Karta korzysta ze zwykłej listy zakupów HA.
 
 ## Krok 4. Dodaj pakiet (sensory i skrypt)
 
-Pakiet przechowuje kategorie, flagi „pilne” i historię często kupowanych produktów.
+Pakiet przechowuje kategorie, flagi „pilne”, ilości i historię często kupowanych produktów.
 
 1. Otwórz **File editor**.
 2. Kliknij ikonę folderu 📁 (lewy górny róg), potem ikonę **nowego folderu** i utwórz folder o nazwie:
@@ -136,6 +136,8 @@ Gotowe! 🎉
 ## Jak tego używać
 
 - **Dodawanie:** wpisz nazwę w polu na górze karty i naciśnij Enter. Kategoria dobierze się sama.
+- **Ilość:** opcjonalnie wpisz ją w małym polu *Ilość* obok nazwy (np. `2`, `1 kg`). Żeby ją zmienić,
+  kliknij ilość przy produkcie albo wybierz *Ilość* w menu produktu.
 - **Kupione:** kliknij kwadracik po lewej stronie produktu.
 - **Zmiana kategorii:** kliknij kolorową plakietkę z nazwą kategorii przy produkcie. W tym samym menu
   jest też *Zmień nazwę* i *Usuń*.

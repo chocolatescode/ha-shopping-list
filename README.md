@@ -21,6 +21,8 @@ z aplikacją mobilną HA i asystentem głosowym.
 - **Edytor kategorii** (⚙ Kategorie) – dodawanie, usuwanie, zmiana nazwy, ikony, koloru, słów kluczowych
   i kolejności. Zapisywane w Home Assistant, więc wspólne dla wszystkich urządzeń.
 - **Pilne** – oznaczone pozycje na górze listy; flaga znika po odhaczeniu.
+- **Ilość** – opcjonalne pole „Ilość” przy dodawaniu (dowolny tekst: „2”, „1 kg”, „3 opak.”), widoczne
+  przy produkcie; zmiana po kliknięciu w ilość albo w menu produktu. Znika po odhaczeniu.
 - **Leki / recepty** – nazwa zawierająca 11-cyfrowy PESEL i 4-cyfrowy kod recepty (albo słowa
   „recepta”, „apteka”) trafia do kategorii *Leki* i jest zawsze pilna. Takie nazwy **nie są**
   zapisywane w historii „często kupowane”.
@@ -53,7 +55,7 @@ Po każdej aktualizacji pliku podbij `?v=`, żeby przeglądarka nie trzymała st
 
 ### 2. Pakiet (sensory + skrypt)
 
-Karta przechowuje ręczne kategorie, flagi „pilne” i definicje kategorii w atrybutach sensora
+Karta przechowuje ręczne kategorie, flagi „pilne”, ilości i definicje kategorii w atrybutach sensora
 szablonowego (integracja todo nie ma pól na tagi). Skopiuj `packages/zakupy_lista.yaml`
 do `/config/packages/` i włącz pakiety w `configuration.yaml`:
 
@@ -66,10 +68,10 @@ Pakiet tworzy:
 
 | Encja | Rola |
 |---|---|
-| `sensor.lista_zakupow_kategorie` | atrybuty `tagi`, `pilne`, `kategorie` |
+| `sensor.lista_zakupow_kategorie` | atrybuty `tagi`, `pilne`, `ilosci`, `kategorie` |
 | `sensor.lista_zakupow_czesto_kupowane` | atrybut `czeste` – licznik dodań produktów |
 | `sensor.lista_zakupow_pozycje` | bieżące nieodhaczone pozycje (dla chipów) |
-| `script.lista_zakupow_ustaw_kategorie` | zapis kategorii / pilne (wywoływany przez kartę) |
+| `script.lista_zakupow_ustaw_kategorie` | zapis kategorii / pilne / ilości (wywoływany przez kartę) |
 
 Pakiet zakłada encję **`todo.lista_zakupow`**. Jeśli Twoja nazywa się inaczej
 (np. `todo.shopping_list`), zmień ją w pakiecie, w przykładach i w konfiguracji karty.

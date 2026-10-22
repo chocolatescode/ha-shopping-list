@@ -53,7 +53,9 @@ template:
   # Ręcznie przypisane kategorie + flaga "pilne" (karta custom:zakupy-lista-card).
   # tagi: {nazwa (lower/trim): id kategorii}; pusty tag usuwa wpis (karta wraca do dopasowania po słowach).
   # pilne: lista nazw (lower/trim) oznaczonych jako pilne.
-  # Zdarzenie lista_zakupow_tag: data.nazwa + data.tag (zmiana kategorii) i/lub data.pilne (true/false).
+  # ilosci: {nazwa (lower/trim): ilość} – ilość produktu, czyszczona przy odhaczeniu.
+  # Zdarzenie lista_zakupow_tag: data.nazwa + data.tag (zmiana kategorii) i/lub data.pilne (true/false)
+  # i/lub data.ilosc (tekst; '' usuwa).
   - triggers:
       - trigger: event
         event_type: lista_zakupow_tag
@@ -75,6 +77,14 @@ template:
             {% if not n or trigger.event.data.pilne | default('_bez_zmian') | string == '_bez_zmian' %}{{ l }}
             {% elif trigger.event.data.pilne | string | lower in ['true', 'on', '1'] %}{{ (l | reject('eq', n) | list) + [n] }}
             {% else %}{{ l | reject('eq', n) | list }}{% endif %}
+          # ilosci: {nazwa (lower/trim): ilość jako tekst, np. "2", "1 kg"}; data.ilosc = '' usuwa wpis.
+          ilosci: >
+            {% set d = this.attributes.ilosci | default({}) %}
+            {% set n = (trigger.event.data.nazwa | default('')) | lower | trim %}
+            {% set q = trigger.event.data.ilosc | default('_bez_zmian') | string | trim %}
+            {% if not n or q == '_bez_zmian' %}{{ d }}
+            {% elif q %}{{ dict(d, **{n: q}) }}
+            {% else %}{{ dict(d.items() | rejectattr(0, 'eq', n) | list) }}{% endif %}
           # Definicje kategorii edytowane w karcie (lista {id, nazwa, ikona, kolor, slowa}); brak = domyślne z JS.
           # data.kategorie = pełna nowa lista; [] przywraca domyślne.
           kategorie: >
@@ -84,7 +94,7 @@ template:
 
 script:
   lista_zakupow_ustaw_kategorie:
-    alias: Lista zakupów – ustaw kategorię / pilne
+    alias: Lista zakupów – ustaw kategorię / pilne / ilość
     icon: mdi:tag
     mode: queued
     fields:
@@ -100,6 +110,10 @@ script:
         description: true/false. Pominięte = bez zmian.
         selector:
           boolean:
+      ilosc:
+        description: Ilość jako tekst, np. "2" albo "1 kg" (puste = usuń). Pominięte = bez zmian.
+        selector:
+          text:
       kategorie:
         description: Pełna lista definicji kategorii (pusta lista = domyślne). Pominięte = bez zmian.
         selector:
@@ -110,4 +124,5 @@ script:
           nazwa: "{{ nazwa | default('') }}"
           tag: "{{ tag if tag is defined else '_bez_zmian' }}"
           pilne: "{{ (pilne | string | lower) if pilne is defined else '_bez_zmian' }}"
+          ilosc: "{{ (ilosc | string) if ilosc is defined else '_bez_zmian' }}"
           kategorie: "{{ kategorie if kategorie is defined else '_bez_zmian' }}"
